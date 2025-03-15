@@ -1,0 +1,548 @@
+---
+title: "ICILS Teacher Panel on Technology Use - Data Viz"
+output: 
+  flexdashboard::flex_dashboard:
+    theme:
+      version: 4
+      bootswatch: yeti
+    vertical_layout: fill
+    favicon: data_viz_icon.png
+---
+
+# Project Description {data-icon="fa-solid fa-chalkboard-user"}
+
+Column {data-width=600}
+--------------------------------------------------------------------------------
+
+### Title {.no-title}
+
+**Welcome to my dashboard!** This is where I am building my work for the EDLD 652 Data Visualization Final Project. I hope you enjoy coding as mush as do!\
+
+The dataset used in this project is from the **International Computer and Information Literacy Study (ICILS) Teacher Panel 2020**, retrieved from the **International Association for the Evaluation of Educational Achievement (IEA)**. ICILS investigates how teachers integrate technology into their teaching practices across different educational systems: Finland, Denmark, and Uruguay.\
+
+For more details about the study and its findings, visit: [Data](https://www.iea.nl/data-tools/repository/icils), [ICILS](https://nces.ed.gov/surveys/icils/), [Report: Changes in Digital Learning During a Pandemic—Findings From the ICILS](https://www.iea.nl/publications/study-reports/international-reports-iea-studies/changes-digital-learning-during)\
+
+In this project, I explored how teachers ICT use frequency in relate with school's attitude toward technology and the disciplines. 
+
+**Research Question One**
+
+What is the relationship between teacher’s information and communication technology (ICT) use frequency with their school’s attitude toward using ICT technology in the classroom? (This question is aiming to explore institutional attitude toward ICT influence individual teacher behavior in adopting technology for teaching).\
+
+**Research Question Two**
+
+What is the relationship between teachers’ technology use in the classroom and their major teaching subjects? This question aims to explore whether teachers in different subject areas (e.g., mathematics, sciences, language arts) use technology more frequently  compare to their peers in other subjects).
+
+Column {data-width=400}
+-------------------------------------------------------------
+### Title {.no-title}
+
+Click the image below to access the ICILS data repository
+
+[![](ICILS_logo.png){width="25%"}](https://www.iea.nl/data-tools/repository/icils)
+
+### Title {.no-title}
+
+Click the image below to access the study report
+
+[![](ICILS_Report_logo.png){width="25%"}](https://www.iea.nl/publications/study-reports/international-reports-iea-studies/changes-digital-learning-during)
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(here)
+library(rio)
+library(tidyverse)
+library(tidyr)
+library(janitor)
+library(haven)
+library(dplyr)
+library(gt)
+library(gtExtras)
+library(colorblindr)
+theme_set(theme_minimal(base_family = "Times"))
+library(kableExtra)
+library(modelsummary)
+library(car)
+library(lme4)
+library(htmltools) #makes the table scrollable
+library(plotly) # adds some interactivity to the plot
+```
+
+```{r include=FALSE}
+load(here("data","MERGEDTP.Rdata"))
+mergedtp <- MERGEDTP
+```
+
+# ICT Use Frequency Table Summary {data-icon="fa-light fa-table-list"}
+
+Sidebar {.sidebar}
+----------------------------------------------
+**Visualization #1**
+
+This section shows a table of descriptive statistics of the subset dataset for Research Question One. The primary audience for this visualization includes school administrators and professional development designers. The goal is to communicate how a school's stance on ICT affects teacher’s usage of technology in their classroom. By highlighting these relationships, I aim to identify gaps in teacher readiness and perceptions that professional development programs can address.
+
+```{r warning=FALSE}
+# data wrangling
+rq1_data <- mergedtp %>% 
+  clean_names() %>% 
+  select(idteach, cntry, partt, year, it2g06a, it2g14a) %>% 
+  filter(partt == 1)
+
+rq1_data <- na.omit(rq1_data)
+
+rq1_data$it2g14a <- factor(rq1_data$it2g14a,
+                           levels = c(1,2,3,4),
+                           labels = c("Strongly Agree", "Agree", "Disagree", "Strongly Disagree"))
+
+rq1_data$it2g06a <- factor(rq1_data$it2g06a,
+                           levels = 1:5,
+                           labels = c("Never", "Less than once a month", "At least once a month but not every week", "At least once a week but not every day", "Every day"))
+
+rq1_summary <- rq1_data %>% 
+  group_by(cntry, year, it2g06a, it2g14a) %>% 
+  summarise(
+    N = n(), .groups = "drop") %>% 
+  mutate(Percent = round(100 * N/sum(N), 1)) %>% 
+  pivot_wider(names_from = year, values_from = c(N, Percent), names_glue = "{year}_{.value}") %>% 
+  arrange(cntry, it2g06a, it2g14a)
+```
+
+Column {data-width=650}
+-------------------------------------------------------------------------------
+
+### Final table
+
+```{r}
+rq1_summary %>% 
+  gt(rowname_col = "it2g14a", groupname_col = "cntry") %>% 
+  tab_header(title = "Table 1. Teachers' ICT perspectives by country and year (2018 & 2020)") %>% 
+  tab_spanner(
+    label = "2018",
+    columns = c(`2018_N`, `2018_Percent`)) %>%
+  tab_spanner(
+    label = "2020",
+    columns = c(`2020_N`, `2020_Percent`)) %>% 
+  cols_label(
+    cntry = "Country",
+    it2g06a = "ICT Use Frequency",
+    it2g14a = "School ICT Priority",
+    `2018_N` = "N (2018)",
+    `2018_Percent` = "% (2018)",
+    `2020_N` = "N (2020)",
+    `2020_Percent` = "% (2020)"
+  ) %>% 
+  fmt_number(columns = c(`2018_Percent`, `2020_Percent`), decimals = 1) %>%
+  tab_options(table.width = pct(100),
+              table.font.size = 10) %>%
+  cols_width(
+    it2g06a ~ pct(70),
+    everything() ~ pct(70)) %>% 
+  tab_style(
+    style = list(cell_fill(color = "#3D8AB6"), cell_text(color = "white")),
+    location = list(
+      cells_body(columns = everything(), rows = it2g06a == "Every day"))
+  ) %>% 
+  tab_footnote(
+    footnote = "Note: DNK refers to Denmark, FIN refers to Finland, and URY refers to Uruguay.") 
+```
+
+> This is the final table that shown the proportion of each level of teachers' ICT use frequncy in the classroom. The data is separated by three different countries: Finland, Denmark, and Uruguay
+
+Column {.tabset data-width=350}
+------------------------------------------------------------------------------
+
+### Version 1
+
+```{r warning=FALSE}
+datasummary_skim(rq1_data, 
+                 type = "categorical")
+```
+
+> Here is the first try via `datasummary_skim function` from the `modelsummary` package. Considering the nature of our subset data, it doesn't show much details about teacher participant in the year of 2018 and 2020 respectively. 
+
+### Version 2
+
+```{r}
+rq1_summary <- rq1_data %>% 
+  datasummary_skim(type = "categorical", output = "gt") %>% 
+  tab_header(
+    title = "Summary of Teachers' ICT Perspectives (2018 & 2020)"
+  ) %>% 
+  cols_width(everything() ~ pct(50)) %>% 
+  opt_table_font(size = 10)
+
+rq1_summary
+```
+
+> At here, I added `output = "gt"` to apply functions from the `gt package` within `datasummary_skim`. Surprisingly, it worked! `gt package` gives me flexibility to customize my table. However, this version of summary table looks still robust.\
+
+### Version 3
+
+```{r warning=FALSE}
+rq1_summary <- rq1_data %>% 
+  group_by(cntry, year, it2g06a, it2g14a) %>% 
+  summarise(
+    N = n(), .groups = "drop") %>% 
+  mutate(Percent = round(100 * N/sum(N), 1)) %>% 
+  pivot_wider(names_from = year, values_from = c(N, Percent), names_glue = "{year}_{.value}") %>% 
+  arrange(cntry, it2g06a, it2g14a)
+```
+
+```{r warning=FALSE}
+rq1_summary %>% 
+  gt() %>% 
+  tab_header(title = "Teachers' ICT perspectives by country and year (2018 & 2020)") %>% 
+  cols_label(
+    cntry = "Country",
+    it2g06a = "ICT Use Frequency",
+    it2g14a = "School ICT Priority",
+    `2018_N` = "N (2018)",
+    `2018_Percent` = "% (2018)",
+    `2020_N` = "N (2020)",
+    `2020_Percent` = "% (2020)"
+  ) %>% 
+  fmt_number(columns = c(`2018_Percent`, `2020_Percent`), decimals = 1) %>%
+  tab_options(table.width = pct(100),
+              table.font.size = 11) %>% 
+  tab_style(
+    style = cell_text(whitespace = "nowrap"),
+    locations = cells_body(columns = c(it2g06a,it2g14a))) %>% 
+  cols_width(
+    it2g06a ~ pct(150),
+    everything() ~ pct(150)) %>% 
+  tab_style(
+    style = list(cell_fill(color = "#1E88E5")),
+    location = list(
+      cells_body(columns = everything(), rows = it2g06a == "Every day"))
+  ) %>% 
+  tab_footnote(
+    footnote = "Note: DNK refers to Denmark, FIN refers to Finland, and URY refers to Uruguay.")
+```
+
+> I then decided to subgroup the dataset by country and year to show the counts and percentage for each category. To highlight the highest level of ICT use frequency in the table, I used `tab_style` and the `location` argument to map the highlights on the tabel. I also choosed a blind fridenly color in this process. This version was almost to what I need, but the whole table still needed further adjustment.
+
+# ICT Use Frequency Trend {data-icon="fa-solid fa-chart-line"}
+
+Sidebar {.sidebar}
+----------------------------------------------
+**Visualization #2**
+
+In this section, I meant to use a plot to show any trends between school ICT priority and Teacher ICT use, as well as Teacher ICT use before and after the COVID-19 pandemic. The hardest part was to construct a clean and informative plot. The primary audience for this visualization includes school administrators and professional development designers. The goal is to communicate how a school's stance on ICT affects teacher’s usage of technology in their classroom. By highlighting these relationships, I aim to identify gaps in teacher readiness and perceptions that professional development programs can address.
+
+```{r}
+rq1_data$year <- as.factor(rq1_data$year)
+
+rq1_p3 <- rq1_data %>% 
+  group_by(year, cntry, it2g06a,it2g14a) %>% 
+  summarise(count = n(), .groups = "drop") %>% 
+  ggplot(aes(x = it2g06a,
+         y = count,
+         group = interaction(cntry,it2g14a),
+         color = it2g14a,
+         linetype = cntry,
+         shape = cntry))+
+  geom_line(alpha = 0.7) +
+  geom_point(size = 2) +
+  facet_wrap(~ year) +
+  labs(title = "Figure 1. Teacher ICT Use Across Countries (2018 & 2020)",
+       x = "ICT Use Frequency",
+       y = "Count",
+       color = "School ICT Priority",
+       linetype = "Country",
+       shape = "Country"
+  ) +
+  scale_color_OkabeIto() +
+  scale_shape_manual(values = c("DNK" = 0, "FIN" = 15, "URY" = 5))+
+  theme(panel.spacing = unit(1, "lines"))+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+Column {data-width=550}
+-------------------------------------------------------------------------------
+
+### Final plot 
+
+```{r}
+rq1_p3
+```
+
+Column {.tabset data-width=450}
+------------------------------------------------------------------------------
+
+### Version 1
+
+```{r}
+rq1_p1 <- ggplot(rq1_data, aes(x = it2g14a, fill = it2g06a)) +
+  geom_bar(position = "fill") +
+  facet_wrap(year ~ cntry) +
+  labs(
+    title = "Teacher ICT Use in Teaching by School ICT Priority",
+    x = "School ICT Priority",
+    y = "Propportion",
+    fill = "Teacher ICT Use Frequency in Teaching"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+rq1_p1
+```
+
+> The initial attempt helps me to map as much information as possible on a stack bar plot. However, it looks very busy and may not deliver the message efficiently. 
+
+### Version 2
+
+```{r}
+rq1_p2 <- ggplot(rq1_data, aes(x = it2g06a, fill = it2g14a)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(year ~ cntry) +
+  labs(
+    title = "Relationship between Teacher ICT Use and 
+             Schools' perspective on ICT",
+    fill = "School ICT Priority",
+    y = "Propportion",
+    x = "Teacher ICT Use Frequency in Teaching"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_fill_OkabeIto()
+rq1_p2
+```
+
+> In my second attempt, I adjust the position of bars and applied scale_fill_OkabeIto() to make it color-blind friendly.
+
+### Version 3
+
+```{r}
+rq1_p2 + coord_flip()
+
+```
+
+> I tried `coord_flip()`in this attempt mainly because the level labels on the x-axis took too much of the lower space. However, we can see all the key information mapped on this plot are either clustered or separated. The overall flow is not good. 
+
+# ICT Use Frequency and School ICT Priority {data-icon="fa-solid fa-superscript"}
+
+Sidebar {.sidebar}
+----------------------------------------------
+**Visualization #3**
+
+Previous statistical summaries indicate that Finland has the highest proportion in schools that prioritize ICT and the highest percentage of teachers who integrate ICT into their daily routine. I would like to know if this relationship is truly significant in Finland, so in this section, I combined schools priority into two levels: "Agree" and "Disagree", and intend to use Pearson's Chi-squared test to examine the relationship between schools ICT priority with teacher ICT use frequency. 
+
+```{r}
+# data wrangling
+rq1_analysis <- rq1_data %>% 
+  mutate(it2g14a_recode = case_when(
+    it2g14a %in% c("Strongly Agree", "Agree") ~ "Agreee",
+    it2g14a %in% c("Strongly Disagree", "Disagree") ~ "Disagree"
+  ))
+
+rq1_an_fin_2018 <- rq1_analysis%>% 
+  filter(cntry == "FIN" & year == 2018)
+```
+
+Column {data-width=550}
+-------------------------------------------------------------------------------
+### Final plot 
+
+```{r}
+rq1_an_fin_2018 %>% 
+  ggplot(aes(it2g14a_recode, fill = it2g06a)) +
+  geom_bar(position = "dodge") +
+  scale_fill_manual(values = c("#009E73", "#0072B2","#E69F00", "#D55E00", "#CC79A7")) +
+  labs(title = "Figure 2. Frequency of ICT Use",
+       subtitle = "Teachers in Finland participated 2018 Survey",
+       x = "School ICT Priority",
+       y = "Number of Participants",
+       fill = "Teachers' response to ICT use in teaching")
+
+```
+
+
+```{r warning=FALSE}
+chi_fin_18 <- chisq.test(rq1_an_fin_2018$it2g14a_recode, rq1_an_fin_2018$it2g06a)
+
+```
+
+> We conducted a Chi-squared goodness-of-fit test with an alpha-trheshold of 0.05, and we reject our null hypothesis. In the population from which the sample for this study was drawn, we did detect statistically significant relationship, on average, between school ICT priority and their teachers ICT use frequency in Finland ($\chi^2$ = 15.655, df = 4, *p*-value = 0.0035).
+
+Column {.tabset data-width=450}
+-------------------------------------------------------------------------------
+### Version 1
+
+```{r}
+rq1_an_fin_2018 %>% 
+  ggplot(aes(x = it2g14a_recode, fill = it2g06a)) +
+  geom_bar(position = "stack") +
+  labs(title = "Frequency of ICT Use",
+       subtitle = "Teachers in Finland participated 2018 Survey",
+       x = "School ICT Priority",
+       y = "Number of Participants",
+       fill = "Teachers' response to ICT use in teaching")
+```
+
+> My first attempt was to map the recoded school priority with a stack bar to make it vertically visuable, but it was difficult to tell the difference across different levels of ICT use frequency. 
+
+### Version 2
+
+```{r}
+rq1_an_fin_2018 %>% 
+  ggplot(aes(x = it2g14a_recode, fill = it2g06a)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Frequency of ICT Use",
+       subtitle = "Teachers in Finland participated 2018 Survey",
+       x = "School ICT Priority",
+       y = "Number of Participants",
+       fill = "Teachers' response to ICT use in teaching")+
+  scale_y_log10(labels = scales::label_comma(), breaks = c(1, 10, 100, 1000))+
+  scale_fill_viridis_d(option = "magma")
+```
+
+> I applied `scale_fill_viridis_d` to ajust the color for my plot. In addition, I use `scale_y_log10` to adjust the scale of y-axis. However, the change of scale does't show the disparity between school ICT priority. 
+
+# ICT use in different subjects {data-icon="fa-solid fa-book"}
+
+Sidebar {.sidebar}
+----------------------------------------------
+**Visualization #4**
+
+The primary audience for this visualization includes curriculum developers and EdTech service providers. The goal of this visualization is to identify the specific needs of various subject areas. By understanding these patterns, EdTech providers can develop customized technology resources that better support teachers in different disciplines. Curriculum developers can use these insights to align instructional strategies with technological integration.
+
+```{r}
+# data wrangling
+
+rq2_data <- mergedtp %>% 
+  clean_names() %>% 
+  select(idteach, cntry, partt, year, it2g06a,it2g03a, it2g03b, it2g03c, it2g03d, it2g03e, it2g03f, it2g03g, it2g03h, it2g03i) %>% 
+  filter(partt == 1)
+
+rq2_data <- na.omit(rq2_data)
+
+rq2_data <- rq2_data %>% 
+  mutate(it2g06a = factor(it2g06a,
+                          level = 1:5,
+                          labels = c("Never", "Less than once a month", "At least once a month but not every week", "At least once a week but not every day", "Every day"), ordered = TRUE),
+         across(starts_with("it2g03"), ~ factor(.x, levels = 1:2, labels = c("Checked", "Not checked"))))
+
+```
+
+Column {data-width=550}
+-------------------------------------------------------------------------------
+
+### Final plot
+
+```{r}
+p_subject_final <- rq2_data %>%
+  pivot_longer(cols = starts_with("it2g03"), names_to = "subject", values_to = "checked") %>% 
+  filter(checked == "Checked") %>% 
+  group_by(subject, it2g06a, year, cntry) %>% 
+  summarise(count = n(), .groups = 'drop') %>%
+  mutate(subject = factor(subject, 
+                          levels = c("it2g03a", "it2g03b", "it2g03c", "it2g03d", "it2g03e", "it2g03f", "it2g03g", "it2g03h", "it2g03i"),
+                          labels = c("Language arts test language", "Language arts foreign and other national languages", "Mathematics", "Sciences","Human sciences/Humanities", "Creative arts", "Information technology", "Practical and vocational subjects", "Other"))) %>% 
+  mutate(subject_group = case_when(
+    subject %in% c("Mathematics", "Sciences", "Information technology", "Practical and vocational subjects") ~ "STEM",
+    subject %in% c("Language arts foreign and other national languages", "Language arts test language", "Human sciences/Humanities", "Creative arts", "Other") ~ "Non-STEM"
+  ))
+
+rq2_p_final <- ggplot(p_subject_final, aes(x = subject_group, y = count, fill = factor(year))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Figure 3. Comparison of Teachers’ ICT Use 
+                in STEM vs. Non-STEM Subjects (2018 & 2020)",
+       x = "Subjects",
+       y = "Number of teachers using ICT",
+       fill = "Year")+
+  facet_wrap(~ cntry)+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_fill_OkabeIto() 
+
+rq2_p_final
+```
+
+Column {.tabset data-width=450}
+-------------------------------------------------------------------------------
+### Version 1
+
+```{r}
+rq2_aggregated <- rq2_data %>% 
+  pivot_longer(cols = starts_with("it2g03"), names_to = "subject", values_to = "checked") %>% 
+  filter(checked == "Checked") %>% 
+  group_by(subject, it2g06a) %>% 
+  summarise(count = n(), .groups = 'drop') %>%
+  mutate(subject = factor(subject, 
+                          levels = c("it2g03a", "it2g03b", "it2g03c", "it2g03d", "it2g03e", "it2g03f", "it2g03g", "it2g03h", "it2g03i"),
+                          labels = c("Language arts test language", "Language arts foreign and other national languages", "Mathematics", "Sciences","Human sciences/Humanities", "Creative arts", "Information technology", "Practical and vocational subjects", "Other")))
+
+```
+
+```{r}
+p_subject <- rq2_aggregated %>% 
+  ggplot(aes(x = it2g06a, y = subject, fill = count)) +
+  geom_tile() +
+  geom_text(aes(label = count), color = "white") +
+  scale_fill_viridis_c(option = "magma") +
+  labs(title = "Relationship Between Teachers’ Technology Use in School and Teaching Subjects",
+       x = "Technology Use",
+       y = "Teaching Subject",
+       fill = "Count") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+p_subject
+```
+
+> My first thought for this plot was a heatmap, but after I constructed one, I found the darkest purple shades are hard to differentiate. In addition, the heatmap doesn't give much details on the difference among each countries. 
+
+### Version 2
+
+```{r}
+p_subject_p4 <- rq2_data %>%
+  pivot_longer(cols = starts_with("it2g03"), names_to = "subject", values_to = "checked") %>% 
+  filter(checked == "Checked") %>% 
+  group_by(subject, it2g06a, year, cntry) %>% 
+  summarise(count = n(), .groups = 'drop') %>%
+  mutate(subject = factor(subject, 
+                          levels = c("it2g03a", "it2g03b", "it2g03c", "it2g03d", "it2g03e", "it2g03f", "it2g03g", "it2g03h", "it2g03i"),
+                          labels = c("Language arts test language", "Language arts foreign and other national languages", "Mathematics", "Sciences","Human sciences/Humanities", "Creative arts", "Information technology", "Practical and vocational subjects", "Other"))) %>% 
+  ggplot(aes(x = subject, y = count, fill = factor(year))) +
+  geom_bar(stat = "identity", position = position_dodge(width = 1)) +
+  labs(title = "Relationship Between Teachers’ Technology Use 
+       in School and Teaching Subjects",
+       x = "Teaching Subjects",
+       y = "Number of teachers using ICT",
+       fill = "Year")+
+  facet_wrap(~ cntry)+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  scale_fill_OkabeIto()
+
+p_subject_p4
+```
+
+> I then tried `geom_bar` to separate the ICT use in different subjects by country and years. It is important to show the difference between 2018 and 2020 because thses two years demonstrate the years before and after the pandemic.
+
+### Version 3
+
+```{r}
+p_subject_final2 <- rq2_data %>%
+  pivot_longer(cols = starts_with("it2g03"), names_to = "subject", values_to = "checked") %>% 
+  filter(checked == "Checked") %>% 
+  group_by(subject, year) %>% 
+  summarise(count = n(), .groups = 'drop') %>%
+  mutate(percent = count/sum(count) * 100) %>% 
+  mutate(subject = factor(subject, 
+                          levels = c("it2g03a", "it2g03b", "it2g03c", "it2g03d", "it2g03e", "it2g03f", "it2g03g", "it2g03h", "it2g03i"),
+                          labels = c("Language arts test language", "Language arts foreign and other national languages", "Mathematics", "Sciences","Human sciences/Humanities", "Creative arts", "Information technology", "Practical and vocational subjects", "Other"))) %>% 
+  mutate(subject_group = case_when(
+    subject %in% c("Mathematics", "Sciences", "Information technology", "Practical and vocational subjects") ~ "STEM",
+    subject %in% c("Language arts foreign and other national languages", "Language arts test language", "Human sciences/Humanities", "Creative arts", "Other") ~ "Non-STEM"
+  ))
+
+p_subject2 <- p_subject_final2 %>% 
+  ggplot(aes(x = subject_group, y = percent, fill = factor(year))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  coord_flip() +
+  labs(title = "Comparison of Teachers’ ICT Use in 
+                   STEM vs. Non-STEM Subjects 2018 & 2020",
+       x = "Subjects",
+       y = "Pecentage of teachers using ICT",
+       fill = "Year") +
+  scale_fill_manual(values = c("2018" = "#0072B2","2020" = "#E69F00"))
+
+p_subject2
+```
+
+> In this plot, I converted counts to percentages and flips bars horizontally. 
